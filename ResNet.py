@@ -4,39 +4,14 @@ import torch.nn.functional as F
 
 
 config = {
-    'ResNet18': [2, 2, 2, 2],
-    'ResNet34': [3, 4, 6, 3],
     'ResNet50': [3, 4, 6, 3],
     'ResNet101': [3, 4, 23, 3],
     'ResNet152': [3, 8, 36, 3],
 }
 
-
-class SmallResidualBlock(nn.Module):
+class ResidualBlock(nn.Module):
     def __init__(self, in_features, out_features, stride, downsample=None):
-        super(SmallResidualBlock, self).__init__()
-        self.conv1 = nn.Conv2d(in_features, out_features, kernel_size=3, stride=1, padding=1)
-        self.bn = nn.BatchNorm2d(out_features)
-        self.conv2 = nn.Conv2d(out_features, out_features, kernel_size=3, stride=stride, padding=1)
-        self.bn = nn.BatchNorm2d(out_features)
-        self.downsample = downsample
-
-    def forward(self, x):
-        original = x
-        x = F.relu(self.bn(self.conv1(x)))
-        x = self.bn(self.conv2(x))
-        if self.downsample is not None:
-            original = self.downsample(original)
-        print(f'x: {str(x.shape)}')
-        print(original.shape)
-        x += original
-        x = F.relu(x)
-        return x
-
-
-class BigResidualBlock(nn.Module):
-    def __init__(self, in_features, out_features, stride, downsample=None):
-        super(BigResidualBlock, self).__init__()
+        super(ResidualBlock, self).__init__()
         self.conv1 = nn.Conv2d(in_features, out_features, kernel_size=1, stride=1, padding=0)
         self.bn1 = nn.BatchNorm2d(out_features)
         self.conv2 = nn.Conv2d(out_features, out_features, kernel_size=3, stride=stride, padding=1)
@@ -68,22 +43,13 @@ class ResNet(nn.Module):
         self.conv = nn.Conv2d(img_channels, 64, kernel_size=7, stride=2, padding=3)
         self.bn = nn.BatchNorm2d(64)
         self.maxpool = nn.MaxPool2d(3, 2, padding=1)
-
-        if self.model == 'ResNet18' or self.model == 'ResNet34':
-            self.layer1 = self.make_sres_layer(64, 1, self.layers_list[0])
-            self.layer2 = self.make_sres_layer(128, 2, self.layers_list[1])
-            self.layer3 = self.make_sres_layer(256, 2, self.layers_list[2])
-            self.layer4 = self.make_sres_layer(512, 2, self.layers_list[3])
-            self.final = 512
-        else:
-            self.layer1 = self.make_bres_layer(64, 1, self.layers_list[0])
-            self.layer2 = self.make_bres_layer(128, 2, self.layers_list[1])
-            self.layer3 = self.make_bres_layer(256, 2, self.layers_list[2])
-            self.layer4 = self.make_bres_layer(512, 2, self.layers_list[3])
-            self.final = 2048
-
+        self.layer1 = self.make_res_layer(64, 1, self.layers_list[0])
+        self.layer2 = self.make_res_layer(128, 2, self.layers_list[1])
+        self.layer3 = self.make_res_layer(256, 2, self.layers_list[2])
+        self.layer4 = self.make_res_layer(512, 2, self.layers_list[3])
+        
         self.avgpool = nn.AdaptiveAvgPool2d(1)
-        self.fc = nn.Linear(self.final, num_classes)
+        self.fc = nn.Linear(2048, num_classes)
 
     def forward(self, x):
         x = self.maxpool(F.relu(self.bn(self.conv(x))))
@@ -98,7 +64,7 @@ class ResNet(nn.Module):
         x = F.softmax(self.fc(x), dim=1)
         return x
 
-    def make_bres_layer(self, features, stride, num_layers):
+    def make_res_layer(self, features, stride, num_layers):
         downsample = None
         layers=[]
         
@@ -107,33 +73,9 @@ class ResNet(nn.Module):
                     nn.Conv2d(self.in_channels, features*4, kernel_size=1, stride=stride, padding=0),
                     nn.BatchNorm2d(features*4)
                 )
-        layers.append(BigResidualBlock(self.in_channels, features, stride, downsample=downsample))
+        layers.append(ResidualBlock(self.in_channels, features, stride, downsample=downsample))
         self.in_channels = features*4
 
         for _ in range(num_layers-1):
-            layers.append(BigResidualBlock(self.in_channels, features, 1))
+            layers.append(ResidualBlock(self.in_channels, features, 1))
         return nn.Sequential(*layers)
-
-    def make_sres_layer(self, features, stride, num_layers):
-        downsample = None
-        layers = []
-
-        if stride!=1 or self.in_channels != features:
-            downsample = nn.Sequential(
-                    nn.Conv2d(self.in_channels, features, kernel_size=1, stride=stride, padding=0),
-                    nn.BatchNorm2d(self.in_channels*4)
-                )
-
-        layers.append(SmallResidualBlock(self.in_channels, features, stride, downsample))
-        self.in_channels = features*2
-
-        for _ in range(num_layers-1):
-            layers.append(SmallResidualBlock(features, features, 1))
-        return nn.Sequential(*layers)
-
-
-if __name__ == '__main__':
-    model = ResNet('ResNet18')
-    sample = torch.randn(3, 3, 224, 224)
-    # print(model)
-    print(model(sample).detach().shape)
