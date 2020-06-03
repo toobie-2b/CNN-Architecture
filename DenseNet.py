@@ -3,29 +3,10 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 config = {
-    'DenseNet121': 
-    {
-        'layers':[6, 12, 24, 16],
-        'k': 32,
-    },
-
-    'DenseNet161': 
-    {
-        'layers':[6, 12, 36, 24],
-        'k': 32,
-    },
-
-    'DenseNet169': 
-    {
-        'layers':[6, 12, 32, 32],
-        'k': 48,
-    },
-
-    'DenseNet201': 
-    {
-        'layers':[6, 12, 48, 32],
-        'k': 32,
-    },
+    'DenseNet121':[6, 12, 24, 16],
+    'DenseNet169':[6, 12, 32, 32],
+    'DenseNet201':[6, 12, 48, 32],
+    'DenseNet264':[6, 12, 64, 68],
 }
 
 
@@ -71,13 +52,11 @@ class DenseLayer(nn.Module):
 class Transition(nn.Module):
     def __init__(self, in_features, out_features):
         super(Transition, self).__init__()
-        self.transition = nn.Sequential(
-                conv_block(in_features, out_features, kernel_size=1, stride=1, padding=0),
-                nn.AvgPool2d(2, 2)
-            )
+        self.conv = conv_block(in_features, out_features, kernel_size=1, stride=1, padding=0)
+        self.pool = nn.AvgPool2d(2, 2)
 
     def forward(self, x):
-        x = self.transition(x)
+        x = self.pool(self.conv(x))
         return x
 
 
@@ -89,17 +68,17 @@ class DenseNet(nn.Module):
         self.conv = nn.Conv2d(in_channels, 64, kernel_size=7, stride=2, padding=3)
         self.pool = nn.MaxPool2d(3, 2, padding=1)
 
-        self.denseblock_1 = DenseLayer(64, config[model]['k'], config[model]['layers'][0])
-        self.transition_1 = Transition(64+(config[model]['layers'][0]*config[model]['k']), 128)
+        self.denseblock_1 = DenseLayer(64, 32, config[model][0])
+        self.transition_1 = Transition(64+(config[model][0]*32), 128)
 
-        self.denseblock_2 = DenseLayer(128, config[model]['k'], config[model]['layers'][1])
-        self.transition_2 = Transition(128+(config[model]['layers'][1]*config[model]['k']), 256)
+        self.denseblock_2 = DenseLayer(128, 32, config[model][1])
+        self.transition_2 = Transition(128+(config[model][1]*32), 256)
 
-        self.denseblock_3 = DenseLayer(256, config[model]['k'], config[model]['layers'][2])
-        self.transition_3 = Transition(256+(config[model]['layers'][2]*config[model]['k']), 512)
+        self.denseblock_3 = DenseLayer(256, 32, config[model][2])
+        self.transition_3 = Transition(256+(config[model][2]*32), 512)
 
-        self.denseblock_4 = DenseLayer(512, config[model]['k'], config[model]['layers'][3])
-        self.transition_4 = Transition(512+(config[model]['layers'][3]*config[model]['k']), 1024)
+        self.denseblock_4 = DenseLayer(512, 32, config[model][3])
+        self.transition_4 = Transition(512+(config[model][3]*32), 1024)
 
         self.avgpool = nn.AdaptiveAvgPool2d(1)
         self.fc = nn.Linear(1024, 1000)
