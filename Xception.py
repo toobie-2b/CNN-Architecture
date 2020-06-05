@@ -104,8 +104,4 @@ class Xception(nn.Module):
             layers.append(MiddleBlock())
 
         return nn.Sequential(*layers)
-
-if __name__ == '__main__':
-    model = Xception()
-    sample = torch.randn(5, 3, 299, 299)
-    print(model(sample).shape)
+        
