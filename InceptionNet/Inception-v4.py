@@ -221,7 +221,7 @@ class GoogLeNet(nn.Module):
 
         self.avgpool = nn.AdaptiveAvgPool2d(1)
         self.dropout = nn.Dropout(p=0.2)
-        self.fc = nn.Linear(1536, 1000)
+        self.fc = nn.Linear(1536, num_classes)
 
     def forward(self, x):
         x = self.stem(x)
