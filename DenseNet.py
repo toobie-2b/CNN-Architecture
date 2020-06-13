@@ -6,7 +6,7 @@ config = {
     'DenseNet121':[6, 12, 24, 16],
     'DenseNet169':[6, 12, 32, 32],
     'DenseNet201':[6, 12, 48, 32],
-    'DenseNet264':[6, 12, 64, 68],
+    'DenseNet264':[6, 12, 64, 48],
 }
 
 
@@ -78,7 +78,6 @@ class DenseNet(nn.Module):
         self.transition_3 = Transition(256+(config[model][2]*32), 512)
 
         self.denseblock_4 = DenseLayer(512, 32, config[model][3])
-        self.transition_4 = Transition(512+(config[model][3]*32), 1024)
 
         self.avgpool = nn.AdaptiveAvgPool2d(1)
         self.fc = nn.Linear(1024, 1000)
@@ -92,7 +91,6 @@ class DenseNet(nn.Module):
         x = self.denseblock_3(x)
         x = self.transition_3(x)
         x = self.denseblock_4(x)
-        x = self.transition_4(x)
         x = self.avgpool(x)
         x = x.reshape(x.shape[0], -1)
         x = F.softmax(self.fc(x), dim=1)
