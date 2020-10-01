@@ -80,7 +80,7 @@ class DenseNet(nn.Module):
         self.denseblock_4 = DenseLayer(512, 32, config[model][3])
 
         self.avgpool = nn.AdaptiveAvgPool2d(1)
-        self.fc = nn.Linear(1024, 1000)
+        self.fc = nn.Linear(1024, num_classes)
 
     def forward(self, x):
         x = self.pool(self.conv(F.relu(self.bn(x))))
